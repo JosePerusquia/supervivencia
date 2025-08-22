@@ -133,6 +133,9 @@ ggplot(data=survs,aes(x=tp,y=St))+
 
 # AIC
 2-2*(num_death*log(lambda_emv)-(lambda_emv*sum_times))
+
+# BIC
+log(n)-2*(num_death*log(lambda_emv)-(lambda_emv*sum_times))
 ####################################################################
 
 ####################################################################
@@ -221,6 +224,9 @@ ggplot(data=survs,aes(x=tp,y=St))+
 
 # AIC
 4-(2*(logLikeWb(c(lambda,gamma),lung$status,lung$time)))
+
+# BIC
+2*log(n)-(2*(logLikeWb(c(lambda,gamma),lung$status,lung$time)))
 ####################################################################
 
 ####################################################################
@@ -374,3 +380,4 @@ loglikrt = 2*(cox_lung$loglik[2]-cox_lung$loglik[1])
 
 betas = cox_lung$coefficients
 waldt = betas%*%solve(cox_lung$var)%*%betas
+####################################################################
