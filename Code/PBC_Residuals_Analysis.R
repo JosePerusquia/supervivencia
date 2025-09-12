@@ -66,7 +66,7 @@ summary(cox_pbc)
 ####################################################################
 # Cox - Snell 
 res_mart = residuals(cox_pbc,type='martingale')
-res_cs = (pbc_cox$status == 2) - res_mart_mod
+res_cs = (pbc_cox$status == 2) - res_mart
 pbc_cox$res_cs = res_cs
 
 # qqplot against exponential
@@ -122,4 +122,95 @@ ggplot(data=pbc_cox,aes(x=id,y=res_dev))+
   labs(x="",y="Deviance residuals")
 ####################################################################
 
+####################################################################
+# Delta-betas
+res_db = residuals(cox_pbc, type = "dfbeta")
 
+id = rep(c(1:418),6)
+
+vars = c(rep('Women',418),rep('Edema 0.5', 418),
+         rep('Edema 1',418), rep('Age',418),
+         rep('Bilirubin',418),rep('Albumin',418))
+
+vals = c(res_db[,1],res_db[,2],
+         res_db[,3],res_db[,4],
+         res_db[,5],res_db[,6])
+
+db_df=data.frame(x=id,y=vals,name=vars)
+
+ggplot(data=db_df,aes(x=x,y=y,col=name))+
+  geom_line()+
+  labs(x='',y=expression(Delta[i]*beta[j]),
+       color = "Covariate")
+####################################################################
+
+####################################################################
+# Likelihood displacement
+LD = numeric(418)
+res_u = residuals(cox_pbc,type='score')
+var_beta = cox_pbc$var
+
+for(i in 1:418){
+  LD[i]=t(res_u[i,])%*%var_beta%*%res_u[i,]
+}
+
+id = c(1:418)
+LD_df = data.frame(x=id,y=LD)
+
+ggplot(data=LD_df,aes(x=id,y=y))+
+  geom_point()+
+  labs(x="",y=expression(LD[i]))
+
+pbc_cox[which(LD>.2),]
+LD[which(LD>.2)]
+####################################################################
+
+####################################################################
+# Schoenfeld residuals 
+res_sch = residuals(cox_pbc,type='schoenfeld')
+
+s_res_sch = matrix(nrow = 161,ncol=6)
+
+for(i in 1:161){
+  s_res_sch[i,] = t(161*cox_pbc$var%*%res_sch[i,])+cox_pbc$coefficients
+}
+
+s_res_sch = as.data.frame(s_res_sch)
+s_res_sch = s_res_sch%>%
+  rename('Women'=V1,'Edema.5'=V2,'Edema1'=V3,
+         'Age'=V4,'Bilirubin'=V5,'Albumin'=V6)%>%
+  mutate(time=pbc$time[which(pbc$status==2)])
+
+ggplot(data=s_res_sch,aes(x=time,y=Women))+
+  geom_point()+
+  geom_smooth(method = "loess", se = F, span = 0.75)+
+  labs(x='Survival time',y='Schoenfeld residuals')
+
+ggplot(data=s_res_sch,aes(x=time,y=Edema.5))+
+  geom_point()+
+  geom_smooth(method = "loess", se = F, span = 0.75)+
+  labs(x='Survival time',y='Schoenfeld residuals')
+
+ggplot(data=s_res_sch,aes(x=time,y=Edema1))+
+  geom_point()+
+  geom_smooth(method = "loess", se = F, span = 0.75)+
+  labs(x='Survival time',y='Schoenfeld residuals')
+
+ggplot(data=s_res_sch,aes(x=time,y=Age))+
+  geom_point()+
+  geom_smooth(method = "loess", se = F, span = 0.75)+
+  labs(x='Survival time',y='Schoenfeld residuals')
+
+ggplot(data=s_res_sch,aes(x=time,y=Bilirubin))+
+  geom_point()+
+  geom_smooth(method = "loess", se = F, span = 0.75)+
+  labs(x='Survival time',y='Schoenfeld residuals')
+
+ggplot(data=s_res_sch,aes(x=time,y=Albumin))+
+  geom_point()+
+  geom_smooth(method = "loess", se = F, span = 0.75)+
+  labs(x='Survival time',y='Schoenfeld residuals')
+
+# ZPH test
+zph=cox.zph(cox_pbc,terms=F)
+####################################################################
