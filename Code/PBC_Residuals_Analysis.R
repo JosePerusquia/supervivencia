@@ -59,7 +59,7 @@ pbc_cox = pbc%>%
 # Cox model
 cox_pbc = coxph(Surv(time,status==2)~sex+edema+
                   age+bili+albumin,
-                 data=pbc_cox)
+                  data=pbc_cox)
 summary(cox_pbc)
 ####################################################################
 
@@ -86,7 +86,8 @@ fit_cs = survfit(Surv(res_cs, status == 2) ~ 1, data = pbc_cox)
 df = data.frame(x=fit_cs$time,y=-log(fit_cs$surv))
 
 ggplot(data=df,aes(x=x,y=y))+
-  geom_step()+
+  geom_line(col='darkgrey')+
+  geom_point(size=.5)+
   labs(x="Cox-Snell residulas",y=expression(hat(H[t])))+
   geom_abline(intercept=0,slope=1,col="red")
 ####################################################################

@@ -15,6 +15,7 @@ library(readxl)         # Version 1.4.4
 library(survival)       # Version 3.8-3
 library(survminer)      # Version 0.5.0
 library(MASS)           # Version 7.3-60
+library(flexsurv)       # Version 2.3.2
 ####################################################################
 
 ####################################################################
@@ -228,4 +229,93 @@ ggplot(data=survs,aes(x=tp,y=St))+
 
 # BIC
 2*log(n)-(2*(logLikeWb(c(lambda,gamma),lung$status,lung$time)))
+####################################################################
+
+####################################################################
+# Exponential survival regression
+lung2 = lung%>%
+  filter(ph.ecog%in%c("0","1","2"))%>%
+  dplyr::select(time,status,sex,ph.ecog)%>%
+  mutate(sex_m = if_else(sex == 2, 1, 0))%>%
+  mutate(ecog2 = if_else(ph.ecog == 1, 1, 0))%>%
+  mutate(ecog3 = if_else(ph.ecog == 2, 1, 0))%>%
+  dplyr::select(time,status,sex_m,ecog2,ecog3)
+
+logLikeExp = function(par,status,times,x,n){
+  beta_sex = par[1]
+  beta_ecog2=par[2]
+  beta_ecog3=par[3]
+  lambda = par[4]
+  
+  beta=c(beta_sex,beta_ecog2,beta_ecog3)
+  m = sum(status)
+  
+  term1 = m*log(lambda)
+  term2 = 0
+  term3 = 0
+  for(i in 1:n){
+    term2 = term2 + status[i]*sum((beta*x[i,]))
+    term3 = term3 + lambda*times[i]*exp(sum((beta*x[i,])))
+  }
+  
+  return(term1+term2-term3)
+}
+
+# Optimisation using a quasi-Newton method
+result = optim(par=c(0,0,0,1),fn=logLikeExp,method="L-BFGS-B",
+               control=list(fnscale = -1,
+                            ndeps=c(.000001,.000001,
+                                    .000001,.000001),
+                            factr=.0000000001),
+               times=lung2$time,status=lung2$status,
+               x = lung2[,c(3,4,5)], n =226,
+               lower=c(-100,-100,-100,0.0000001),
+               upper=c(100,100,100,100),hessian=T)
+
+# Estimates
+beta1=result$par[1];beta1
+beta2=result$par[2];beta2
+beta3=result$par[3];beta3
+lambda = result$par[4];lambda
+
+# Flexsurvreg estimates
+lung = lung%>%
+  filter(ph.ecog%in%c("0","1","2"))%>%
+  mutate(sex=factor(sex),
+         ph.ecog=factor(ph.ecog))
+  
+mod=flexsurvreg(Surv(time,event=status)~sex+ph.ecog,
+        dist='exp',data=lung)
+mod
+####################################################################
+
+####################################################################
+# Cox - Snell residuals
+res_cs = residuals(mod,type='coxsnell')
+
+# KM estimate using Cox - Snell residuals
+lung$CS = res_cs
+fit_cs = survfit(Surv(CS, status) ~ 1, data = lung)
+
+# Plot cumulative hazard
+df = data.frame(x=fit_cs$time,y=-log(fit_cs$surv))
+
+ggplot(data=df,aes(x=x,y=y))+
+  geom_line(col='darkgrey')+
+  geom_point(size=.5)+
+  labs(x="Cox-Snell residuals",y=expression(hat(H[t])))+
+  geom_abline(intercept=0,slope=1,col="red")
+####################################################################
+
+####################################################################
+# Deviance residuals
+res_mar = lung$status-res_cs
+res_dev = sign(res_mar)*sqrt((-2*(res_mar+
+                lung$status*log(lung$status-res_mar))))
+lung$Dev = res_dev
+
+ggplot(data=lung,aes(x=time,y=Dev))+
+  geom_point()+
+  geom_hline(yintercept=0,col='red')+
+  labs(x="Survival time",y="Deviance residuals")
 ####################################################################
