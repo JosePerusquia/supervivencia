@@ -58,7 +58,7 @@ pbc_cox = pbc%>%
 
 # Cox model
 cox_pbc = coxph(Surv(time,status==2)~sex+edema+
-                  age+bili+albumin,
+                  age+log(bili)+albumin,
                   data=pbc_cox)
 summary(cox_pbc)
 ####################################################################
@@ -69,17 +69,7 @@ res_mart = residuals(cox_pbc,type='martingale')
 res_cs = (pbc_cox$status == 2) - res_mart
 pbc_cox$res_cs = res_cs
 
-# qqplot against exponential
-expo = rexp(418,1)
-df = data.frame(x=expo,y=pbc_cox)
-
-ggplot(data=pbc_cox,aes(sample=res_cs))+
-  stat_qq(distribution=qexp,dparams=list(1))+
-  labs(x="Theoretical",y="Sample")+
-  stat_qq_line(distribution=qexp,dparams=list(1),
-               col="red")
-
-# Fit a Cox regression using Cox - Snell residuals
+# KM using the Cox-Snell residuals as the times
 fit_cs = survfit(Surv(res_cs, status == 2) ~ 1, data = pbc_cox)
 
 # Plot cumulative hazard
@@ -168,50 +158,58 @@ LD[which(LD>.2)]
 
 ####################################################################
 # Schoenfeld residuals 
-res_sch = residuals(cox_pbc,type='schoenfeld')
+res_sch = residuals(cox_pbc,type='scaledsch')
+res_sch = as.data.frame(res_sch)
 
-s_res_sch = matrix(nrow = 161,ncol=6)
-
-for(i in 1:161){
-  s_res_sch[i,] = t(161*cox_pbc$var%*%res_sch[i,])+cox_pbc$coefficients
-}
-
-s_res_sch = as.data.frame(s_res_sch)
-s_res_sch = s_res_sch%>%
-  rename('Women'=V1,'Edema.5'=V2,'Edema1'=V3,
-         'Age'=V4,'Bilirubin'=V5,'Albumin'=V6)%>%
+res_sch = res_sch%>%
+  rename('Women'=sexf,'Edema.5'=edema0.5,'Edema1'=edema1,
+         'Age'=age,'Bilirubin'='log(bili)','Albumin'=albumin)%>%
   mutate(time=pbc$time[which(pbc$status==2)])
 
-ggplot(data=s_res_sch,aes(x=time,y=Women))+
+ggplot(data=res_sch,aes(x=time,y=Women))+
   geom_point()+
   geom_smooth(method = "loess", se = F, span = 0.75)+
   labs(x='Survival time',y='Schoenfeld residuals')
 
-ggplot(data=s_res_sch,aes(x=time,y=Edema.5))+
+ggplot(data=res_sch,aes(x=time,y=Edema.5))+
   geom_point()+
   geom_smooth(method = "loess", se = F, span = 0.75)+
   labs(x='Survival time',y='Schoenfeld residuals')
 
-ggplot(data=s_res_sch,aes(x=time,y=Edema1))+
+ggplot(data=res_sch,aes(x=time,y=Edema1))+
   geom_point()+
   geom_smooth(method = "loess", se = F, span = 0.75)+
   labs(x='Survival time',y='Schoenfeld residuals')
 
-ggplot(data=s_res_sch,aes(x=time,y=Age))+
+ggplot(data=res_sch,aes(x=time,y=Age))+
   geom_point()+
   geom_smooth(method = "loess", se = F, span = 0.75)+
   labs(x='Survival time',y='Schoenfeld residuals')
 
-ggplot(data=s_res_sch,aes(x=time,y=Bilirubin))+
+ggplot(data=res_sch,aes(x=time,y=Bilirubin))+
   geom_point()+
   geom_smooth(method = "loess", se = F, span = 0.75)+
   labs(x='Survival time',y='Schoenfeld residuals')
 
-ggplot(data=s_res_sch,aes(x=time,y=Albumin))+
+ggplot(data=res_sch,aes(x=time,y=Albumin))+
   geom_point()+
   geom_smooth(method = "loess", se = F, span = 0.75)+
   labs(x='Survival time',y='Schoenfeld residuals')
 
-# ZPH test
+# ZPH test 
 zph=cox.zph(cox_pbc,terms=F)
+print(zph)
+
+# Another way to plot scaled Schoenfeld residuals and check if the
+# PH holds
+ggcoxzph(zph[1],title='',ggtheme = theme_pbc,
+         xlab='Time',ylab='Coefficient for women')
+ggcoxzph(zph[2],title='',ggtheme = theme_pbc,
+         xlab='Time',ylab='Coefficient for edema 0.5')
+ggcoxzph(zph[3],title='',ggtheme = theme_pbc,
+         xlab='Time',ylab='Coefficient for edema 1')
+ggcoxzph(zph[4],title='',ggtheme = theme_pbc,
+         xlab='Time',ylab='Coefficient for bilirunbin')
+ggcoxzph(zph[5],title='',ggtheme = theme_pbc,
+         xlab='Time',ylab='Coefficient for albumin')
 ####################################################################
