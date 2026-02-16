@@ -1,12 +1,12 @@
-####################################################################
-# Exponential and Weibull survival models                    
+################################################################
+# Exponential and Weibull survival models for lung cancer data           
 # Author: Jose Antonio Perusquia Cortes
 # Afil: Facultad de Ciencias - UNAM
 # Module: Survival analysis 
-####################################################################
+################################################################
 
-####################################################################
-# Libraries
+################################################################
+# Required libraries
 library(here)           # Version 1.0.1
 library(ggplot2)        # Version 3.5.2  
 library(ggthemes)       # Version 5.1.0
@@ -16,9 +16,9 @@ library(survival)       # Version 3.8-3
 library(survminer)      # Version 0.5.0
 library(MASS)           # Version 7.3-60
 library(flexsurv)       # Version 2.3.2
-####################################################################
+################################################################
 
-####################################################################
+################################################################
 # Base theme for the plots
 theme_lung = theme_minimal()+
   theme(axis.title.x = element_text(size = 11,face='bold'),
@@ -27,8 +27,9 @@ theme_lung = theme_minimal()+
         axis.text.y = element_text(size=10,face='bold'))
 
 theme_set(theme_lung)
+################################################################
 
-####################################################################
+################################################################
 # NCCTG Lung Cancer Data
 lung=lung%>%
   mutate(status=status-1)
@@ -47,7 +48,6 @@ ggplot(data=lung_status,aes(x=Status,y=n,fill=Status))+
   geom_text(aes(label = n), vjust = 2, colour = "black")+
   labs(x='',y='')
 
-
 # Histogram of survival times
 ggplot(data=lung,aes(x=time,y=after_stat(density)))+
   geom_histogram(fill='lightblue3',col='black',
@@ -57,19 +57,25 @@ ggplot(data=lung,aes(x=time,y=after_stat(density)))+
 # Empirical quantiles of the survival times
 mean(lung$time)
 quantile(lung$time)
-####################################################################
+################################################################
 
-####################################################################
+################################################################
 # Exponential model
 n = dim(lung)[1]
 num_death = sum(lung$status)
 sum_times = sum(lung$time)
 
-# Maximum likelihood estimator for lambda
+# Maximum likelihood estimator for lambda and CI at 95%
 lambda_emv = num_death/sum_times;lambda_emv
+se_lambda = lambda_emv/sqrt(num_death)
+  
+alpha = .05
+lambda_L = lambda_emv*exp(-qnorm(1-alpha/2)/sqrt(num_death))
+lambda_U = lambda_emv*exp(qnorm(1-alpha/2)/sqrt(num_death))
+lambda_L;lambda_U
 
 # Density
-t = seq(0:max(lung$time))
+t = seq(0.001,max(lung$time),by=1)
 ft_exp = lambda_emv*exp(-lambda_emv*t)
 density_exp = data.frame(t,ft_exp)
 
@@ -79,69 +85,55 @@ ggplot(data=lung,aes(x=time,y=after_stat(density)))+
   geom_line(data=density_exp,aes(x=t,y=ft_exp))+  
   labs(x='Survival time',y='')
 
-# Risk function
+# Risk function and CI at 95%
 ht_exp = lambda_emv
-risk_exp = data.frame(t,ht_exp)
+risk_exp = data.frame(t,ht_exp,lambda_L,lambda_U)
 ggplot(data=risk_exp,aes(x=t,y=ht_exp))+
   geom_line()+
-  labs(x=expression(t),y=expression(h(t)))
+  geom_line(aes(x=t,y=lambda_L),col='navyblue')+
+  geom_line(aes(x=t,y=lambda_U),col='navyblue')+
+  labs(x=expression(t),y=expression(h(t)))+
+  coord_cartesian(y=c(.0019,.0028))
 
-# Survival function
+# Survival function and CI at 95%
 St_exp = exp(-lambda_emv*t)
+St_exp_L = St_exp*exp(-t*se_lambda*qnorm(1-alpha/2))
+St_exp_U = St_exp*exp(t*se_lambda*qnorm(1-alpha/2))
 surv_exp = data.frame(t,St_exp)
+
 ggplot(data=surv_exp,aes(x=t,y=St_exp))+
   geom_line()+
+  geom_line(aes(x=t,y=St_exp_L),col='navyblue')+
+  geom_line(aes(x=t,y=St_exp_U),col='navyblue')+
   labs(x=expression(t),y=expression(S(t)))
 
 # Mean survival time
 1/lambda_emv
 
-# Median survival time
-log(2)/lambda_emv
-
-# Quantiles and confidence intervals (this method could potentially
-# produce negative estimates)
+# Quantiles and CI at 95% 
 p = seq(.01,.99,by=.01)
-
 tp = log(1/(1-p))/lambda_emv
 se_tp = tp/sqrt(num_death)
 
-tp_li = tp - se_tp*qnorm(.975)
-tp_ui = tp + se_tp*qnorm(.975)
+tp_L = tp*exp(-qnorm(.975)/sqrt(num_death))
+tp_U = tp*exp(qnorm(.975)/sqrt(num_death))
 
 # For the median
-tp_li[50]
-tp_ui[50]
+tp[50]
+tp_L[50]
+tp_U[50]
 
-# Quantiles and confidence intervals V2 
-tp_li_v2 = tp*exp(-qnorm(.975)/sqrt(num_death))
-tp_ui_v2 = tp*exp(qnorm(.975)/sqrt(num_death))
+# Information criteria 
+k=1
+log_L_max = (num_death*log(lambda_emv)-(lambda_emv*sum_times))
+AIC_exp= 2*k-2*log_L_max;AIC_exp
+BIC_exp=k*log(n)-2*log_L_max;BIC_exp
+################################################################
 
-# Median
-tp_li_v2[50]
-tp_ui_v2[50]
-
-# Survival function and confidence intervals
-St = exp(-lambda_emv*tp)
-St_li = exp(-lambda_emv*tp_li_v2)
-St_ui = exp(-lambda_emv*tp_ui_v2)
-
-survs = data.frame(tp,St,St_li,St_ui)
-ggplot(data=survs,aes(x=tp,y=St))+
-  geom_line()+
-  geom_line(aes(x=tp,y=St_li),col="lightblue4")+
-  geom_line(aes(x=tp,y=St_ui),col="lightblue4")+
-  labs(x="",y="")
-
-# AIC
-2-2*(num_death*log(lambda_emv)-(lambda_emv*sum_times))
-
-# BIC
-log(n)-2*(num_death*log(lambda_emv)-(lambda_emv*sum_times))
-####################################################################
-
-####################################################################
+################################################################
 # Weibull model
+
+# log likelihoood function
 logLikeWb = function(par,status,times){
   lambda = par[1]
   gamma = par[2]
@@ -154,19 +146,31 @@ logLikeWb = function(par,status,times){
 
 # Optimisation using a quasi-Newton method
 result = optim(par=c(1,1),fn=logLikeWb,method="L-BFGS-B",
-              control=list(fnscale = -1,ndeps=c(.000001,.000001),
+              control=list(fnscale = -1,
+                           ndeps=c(.000001,.000001),
                            factr=.0000000001),
               times=lung$time,status=lung$status,
               lower=c(0.0000001,0.0000001),
               upper=c(100,100),hessian=T)
 
-# Estimates
+covMat=solve(-result$hessian)
+var_lambda=covMat[1,1]
+var_gamma=covMat[2,2]
+cov_lg = covMat[1,2]
+
+# Estimates and CI at 95%
 lambda=result$par[1];lambda
+lambda_L = lambda*exp(-sqrt(var_lambda)*qnorm(1-alpha/2)/lambda)
+lambda_U = lambda*exp(sqrt(var_lambda)*qnorm(1-alpha/2)/lambda)
+lambda_L;lambda_U
+
 gamma=result$par[2];gamma
+gamma_L = gamma*exp(-sqrt(var_gamma)*qnorm(1-alpha/2)/gamma)
+gamma_U = gamma*exp(sqrt(var_gamma)*qnorm(1-alpha/2)/gamma)
+gamma_L;gamma_U
 
 # Density 
 ft_wb = lambda*gamma*(t^(gamma-1))*exp(-lambda*(t^gamma))
-
 density_wb = data.frame(t,ft_wb)
 ggplot(data=lung,aes(x=time,y=after_stat(density)))+
   geom_histogram(fill='lightblue3',col='black',
@@ -174,64 +178,71 @@ ggplot(data=lung,aes(x=time,y=after_stat(density)))+
   geom_line(data=density_wb,aes(x=t,y=ft_wb))+  
   labs(x='Days',y='')
 
-# Risk function
+# Risk function and CI at 95%
 ht_wb = lambda*gamma*t^(gamma-1)
-risk_wb = data.frame(t,ht_wb)
+
+g = log(ht_wb)
+var_g = var_lambda/(lambda^2)+((1/gamma)+log(t))^2*var_gamma+
+  2*cov_lg*((1/gamma)+log(t))/lambda
+se_g = sqrt(var_g)
+
+ht_wb_L = ht_wb*exp(-se_g*qnorm(1-alpha/2))
+ht_wb_U = ht_wb*exp(+se_g*qnorm(1-alpha/2))
+
+risk_wb = data.frame(t,ht_wb,ht_wb_L,ht_wb_U)
 ggplot(data=risk_wb,aes(x=t,y=ht_wb))+
   geom_line()+
+  geom_line(aes(x=t,y=ht_wb_L),col='navyblue')+
+  geom_line(aes(x=t,y=ht_wb_U),col='navyblue')+
   labs(x=expression(t),y=expression(h(t)))
 
-# Survival
+# Survival function and CI at 95%
 St_wb = exp(-lambda*(t^gamma))
-surv_wb = data.frame(t,St_wb)
+
+g = log(-log(St_wb))
+var_g = var_lambda/(lambda^2) + (log(t)^2)*var_gamma +
+  (2*log(t)*cov_lg)/lambda
+se_g = sqrt(var_g)
+g_L = g-se_g*qnorm(1-alpha/2)
+g_U = g+se_g*qnorm(1-alpha/2)
+
+St_wb_L = exp(-exp(g_U))
+St_wb_U = exp(-exp(g_L))
+
+surv_wb = data.frame(t,St_wb,St_wb_L,St_wb_U)
 ggplot(data=surv_wb,aes(x=t,y=St_wb))+
   geom_line()+
+  geom_line(aes(x=t,y=St_wb_L),col='navyblue')+
+  geom_line(aes(x=t,y=St_wb_U),col='navyblue')+
   labs(x=expression(t),y=expression(S(t)))
 
 # Mean survival time
 gamma((1/gamma)+1)/(lambda^(1/gamma))
 
 # Quantiles and confidence intervals
-covMat=solve(-result$hessian)
-var_l=covMat[1,1]
-var_g=covMat[2,2]
-cov_lg = covMat[1,2]
+cp=log(1/(1-p))
+tp = (cp/lambda)^(1/gamma) 
 
-tp = (log(1/(1-p))/lambda)^(1/gamma) 
+se_log_tp = (((gamma^2)*lambda)^(-1))*(gamma^2*var_lambda+
+               lambda^2*var_gamma*(log(cp)-log(lambda))^2+
+               2*lambda*gamma*cov_lg*(log(cp)-log(lambda)))^(1/2)
 
-cp=log(log(1/(1-p)))
-se_tp = 1/(lambda*(gamma^2))*(gamma^2*var_l+
-                    lambda^2*(cp-log(lambda))^2*var_g+
-                    2*lambda*gamma*(cp-log(lambda))*cov_lg)^(1/2)
-
-tp_li = exp(log(tp) - se_tp*qnorm(.975))
-tp_ui = exp(log(tp) + se_tp*qnorm(.975))
+tp_L = tp*exp(-se_log_tp*qnorm(1-alpha/2))
+tp_U = tp*exp(se_log_tp*qnorm(1-alpha/2))
 
 # Median confidence intervals
 tp[50]
-tp_li[50]
-tp_ui[50]
+tp_L[50]
+tp_U[50]
 
-# Survival function and confidence intervals
-St = exp(-lambda*(tp^gamma))
-St_li = exp(-lambda*(tp_li^gamma))
-St_ui = exp(-lambda*(tp_ui^gamma))
+# Information criteria
+k=2
+log_L_max = logLikeWb(c(lambda,gamma),lung$status,lung$time)
+AIC_w = 2*k-(2*log_L_max);AIC_w
+BIC_w = k*log(n)-(2*log_L_max);BIC_w
+################################################################
 
-survs = data.frame(tp,St,St_li,St_ui)
-ggplot(data=survs,aes(x=tp,y=St))+
-  geom_line()+
-  geom_line(aes(x=tp,y=St_li),col="lightblue4")+
-  geom_line(aes(x=tp,y=St_ui),col="lightblue4")+
-  labs(x="",y="")
-
-# AIC
-4-(2*(logLikeWb(c(lambda,gamma),lung$status,lung$time)))
-
-# BIC
-2*log(n)-(2*(logLikeWb(c(lambda,gamma),lung$status,lung$time)))
-####################################################################
-
-####################################################################
+################################################################
 # Exponential survival regression
 lung2 = lung%>%
   filter(ph.ecog%in%c("0","1","2"))%>%
@@ -287,9 +298,9 @@ lung = lung%>%
 mod=flexsurvreg(Surv(time,event=status)~sex+ph.ecog,
         dist='exp',data=lung)
 mod
-####################################################################
+################################################################
 
-####################################################################
+################################################################
 # Cox - Snell residuals
 res_cs = residuals(mod,type='coxsnell')
 
@@ -305,9 +316,9 @@ ggplot(data=df,aes(x=x,y=y))+
   geom_point(size=.5)+
   labs(x="Cox-Snell residuals",y=expression(hat(H[t])))+
   geom_abline(intercept=0,slope=1,col="red")
-####################################################################
+################################################################
 
-####################################################################
+################################################################
 # Deviance residuals
 res_mar = lung$status-res_cs
 res_dev = sign(res_mar)*sqrt((-2*(res_mar+
@@ -318,4 +329,4 @@ ggplot(data=lung,aes(x=time,y=Dev))+
   geom_point()+
   geom_hline(yintercept=0,col='red')+
   labs(x="Survival time",y="Deviance residuals")
-####################################################################
+################################################################
