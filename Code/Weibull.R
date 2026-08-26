@@ -27,22 +27,29 @@ theme_set(theme_plots)
 ##################################################################
 # Weibull distribution with constant hazard rate
 lambda = 1
-gamma = 1
-t = seq(0,7.5,by=.01)
+kappa = 1
+scale_weibull = lambda^(-1/kappa)
+median_weibull = scale_weibull * (log(2))^(1/kappa)
+mean_weibull   = scale_weibull * gamma(1 + 1/kappa)
+t = seq(0.00001,7.5,by=.01)
 
 # Density, distribution, survival and hazard
-ft = dweibull(t,gamma,1/lambda)
-Ft = pweibull(t,gamma,1/lambda)
-St = 1-Ft
+ft = dweibull(t,shape=kappa,scale=scale_weibull)
+Ft = pweibull(t,shape=kappa,scale=scale_weibull)
+St = pweibull(t,shape=kappa,scale=scale_weibull,lower.tail=FALSE)
 ht = ft/St
 
 # Plots
 df_weibull = data.frame(t,ft,Ft,St,ht)
 
-# Density
+# Density with the median and the mean
 ggplot(data=df_weibull,aes(x=t,y=ft))+
   geom_line(col='cyan4')+
-  labs(x=expression(t),y=expression(f(t)))
+  labs(x=expression(t),y=expression(f(t)),linetype=NULL,colour=NULL)+
+  geom_vline(aes(xintercept = median_weibull,linetype = "Median",colour = "Median"))+
+  geom_vline(aes(xintercept = mean_weibull,linetype = "Mean",colour = "Mean"))+
+  scale_colour_manual(values = c("Median" = "black","Mean" = "darkred"))+
+  scale_linetype_manual(values = c("Median" = "dashed","Mean" = "longdash"))
 
 # Distribution
 ggplot(data=df_weibull,aes(x=t,y=Ft))+
@@ -63,22 +70,29 @@ ggplot(data=df_weibull,aes(x=t,y=ht))+
 ##################################################################
 # Weibull distribution with increasing hazard rate
 lambda = 1
-gamma = 1.5
-t = seq(0,5,by=.01)
+kappa = 1.5
+scale_weibull = lambda^(-1/kappa)
+median_weibull = scale_weibull * (log(2))^(1/kappa)
+mean_weibull   = scale_weibull * gamma(1 + 1/kappa)
+t = seq(0.00001,5,by=.01)
 
 # Density, distribution, survival and hazard
-ft = dweibull(t,gamma,1/lambda)
-Ft = pweibull(t,gamma,1/lambda)
-St = 1-Ft
+ft = dweibull(t,shape=kappa,scale=scale_weibull)
+Ft = pweibull(t,shape=kappa,scale=scale_weibull)
+St = pweibull(t,shape=kappa,scale=scale_weibull,lower.tail=FALSE)
 ht = ft/St
 
 # Plots
 df_weibull = data.frame(t,ft,Ft,St,ht)
 
-# Density
+# Density with the median and the mean
 ggplot(data=df_weibull,aes(x=t,y=ft))+
   geom_line(col='cyan4')+
-  labs(x=expression(t),y=expression(f(t)))
+  labs(x=expression(t),y=expression(f(t)),linetype=NULL,colour=NULL)+
+  geom_vline(aes(xintercept = median_weibull,linetype = "Median",colour = "Median"))+
+  geom_vline(aes(xintercept = mean_weibull,linetype = "Mean",colour = "Mean"))+
+  scale_colour_manual(values = c("Median" = "black","Mean" = "darkred"))+
+  scale_linetype_manual(values = c("Median" = "dashed","Mean" = "longdash"))
 
 # Distribution
 ggplot(data=df_weibull,aes(x=t,y=Ft))+
@@ -99,22 +113,30 @@ ggplot(data=df_weibull,aes(x=t,y=ht))+
 ##################################################################
 # Weibull distribution with decreasing hazard rate
 lambda = 1
-gamma = .5
-t = seq(0,5,by=.01)
+kappa = .5
+scale_weibull = lambda^(-1/kappa)
+median_weibull = scale_weibull * (log(2))^(1/kappa)
+mean_weibull   = scale_weibull * gamma(1 + 1/kappa)
+t = seq(0.00001,5,by=.01)
 
 # Density, distribution, survival and hazard
-ft = dweibull(t,gamma,1/lambda)
-Ft = pweibull(t,gamma,1/lambda)
-St = 1-Ft
+ft = dweibull(t,shape=kappa,scale=scale_weibull)
+Ft = pweibull(t,shape=kappa,scale=scale_weibull)
+St = pweibull(t,shape=kappa,scale=scale_weibull,lower.tail=FALSE)
 ht = ft/St
 
 # Plots
 df_weibull = data.frame(t,ft,Ft,St,ht)
 
-# Density
+# Density with the median and the mean
 ggplot(data=df_weibull,aes(x=t,y=ft))+
   geom_line(col='cyan4')+
-  labs(x=expression(t),y=expression(f(t)))
+  labs(x=expression(t),y=expression(f(t)),linetype=NULL,colour=NULL)+
+  geom_vline(aes(xintercept = median_weibull,linetype = "Median",colour = "Median"))+
+  geom_vline(aes(xintercept = mean_weibull,linetype = "Mean",colour = "Mean"))+
+  scale_colour_manual(values = c("Median" = "black","Mean" = "darkred"))+
+  scale_linetype_manual(values = c("Median" = "dashed","Mean" = "longdash"))+
+  coord_cartesian(ylim=c(0,10))
 
 # Distribution
 ggplot(data=df_weibull,aes(x=t,y=Ft))+
@@ -129,5 +151,6 @@ ggplot(data=df_weibull,aes(x=t,y=St))+
 # Hazard
 ggplot(data=df_weibull,aes(x=t,y=ht))+
   geom_line(col='darkgreen')+
-  labs(x=expression(t),y=expression(h(t)))
+  labs(x=expression(t),y=expression(h(t)))+
+  coord_cartesian(ylim=c(0,10))
 ##################################################################

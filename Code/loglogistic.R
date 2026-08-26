@@ -29,14 +29,14 @@ theme_set(theme_plots)
 # generation for the normal distribution with parameters
 # kappa > 0 and theta in R
 
-# Density with default kappa=theta=0
+# Density with default kappa=1, theta=0
 dloglogistic = function(t,kappa = 1, theta = 0){
   num = kappa*(t^(kappa-1))*exp(theta)
   den = (1 + exp(theta)*(t^(kappa)))^2
   return(num/den)
 }
 
-# Distribution function with default kappa=theta=1 and lower.tail=T
+# Distribution function with default kappa=1, theta=0 and lower.tail=T
 # otherwise it calculates P(T>t)
 ploglogistic = function(t,kappa = 1, theta = 0, lower.tail = T){
   num = exp(theta)*(t^kappa)
@@ -48,7 +48,7 @@ ploglogistic = function(t,kappa = 1, theta = 0, lower.tail = T){
   }
 }
 
-# Quantile function with default values kappa = 1 = theta and
+# Quantile function with default values kappa = 1, theta=0 and
 # lower.tail = T otherwise it obtains the value t such that
 # P(T>t) = q
 qloglogistic = function(q,kappa = 1, theta = 0, lower.tail = T){
@@ -64,7 +64,7 @@ qloglogistic = function(q,kappa = 1, theta = 0, lower.tail = T){
 }
 
 # Random generation for the loglogistic distribution with default 
-# kappa = 1 = theta
+# kappa = 1, theta=0
 rloglogistic = function(n, kappa = 1, theta = 0){
   u = runif(n)
   t = ((u/(1-u))*exp(-theta))^(1/kappa)
@@ -74,12 +74,15 @@ rloglogistic = function(n, kappa = 1, theta = 0){
 
 ##################################################################
 # Loglogistic with kappa = 1 (no finite mean) and theta = 0 
-t = seq(0,1,by=.01)
+kappa=1
+theta=0
+median_logLogistic = exp(-theta/kappa)
+t = seq(0.00001,10,by=.01)
 
 # Density, distribution, survival and hazard
-ft = dloglogistic(t)
-Ft = ploglogistic(t)
-St = 1-Ft
+ft = dloglogistic(t, kappa=kappa, theta=theta)
+Ft = ploglogistic(t, kappa=kappa, theta=theta)
+St = ploglogistic(t,kappa=kappa, theta=theta, lower.tail = FALSE)
 ht = ft/St
 
 # Plots
@@ -88,7 +91,10 @@ df_loglogistic = data.frame(t,ft,Ft,St,ht)
 # Density
 ggplot(data=df_loglogistic,aes(x=t,y=ft))+
   geom_line(col='cyan4')+
-  labs(x=expression(t),y=expression(f(t)))
+  labs(x=expression(t),y=expression(f(t)),linetype=NULL,colour=NULL)+
+  geom_vline(aes(xintercept = median_logLogistic,linetype = "Median",colour = "Median"))+
+  scale_colour_manual(values = c("Median" = "black"))+
+  scale_linetype_manual(values = c("Median" = "dashed"))
 
 # Distribution
 ggplot(data=df_loglogistic,aes(x=t,y=Ft))+
@@ -105,24 +111,27 @@ ggplot(data=df_loglogistic,aes(x=t,y=ht))+
   geom_line(col='darkgreen')+
   labs(x=expression(t),y=expression(h(t)))
 
-# Random sample
+# Random sample to show heavy tails
 set.seed(314159)
-t = data.frame(x=rloglogistic(250))
-ggplot(data = t, aes(x=x,y=after_stat(density)))+
-  geom_histogram(col='black',fill='cyan4')+
+sample_logLogistic = data.frame(x = rloglogistic(250,kappa = kappa,theta = theta))
+ggplot(data = sample_logLogistic, aes(x=x,y=after_stat(density)))+
+  geom_histogram(col='black',fill='cyan4',bins=30)+
   labs(x='',y='')
 ##################################################################
 
 ##################################################################
-# Log-logistic with kappa = 8 (finite mean) and theta = 0
+# Log-logistic with kappa = 8 (finite mean) and theta = 0 yielding
+# unimodal hazard function
 kappa = 8
 theta = 0
-t = seq(0,10,by=.01)
+median_logLogistic = exp(-theta/kappa)
+mean_logLogistic = (pi*exp(-theta/kappa))/(kappa*sin(pi/kappa))
+t = seq(0.00001,10,by=.01)
 
 # Density, distribution, survival and hazard
 ft = dloglogistic(t,kappa = kappa, theta = theta)
 Ft = ploglogistic(t,kappa = kappa, theta = theta)
-St = 1-Ft
+St = ploglogistic(t,kappa = kappa, theta = theta,lower.tail = F)
 ht = ft/St;ht
 
 # Plots
@@ -131,7 +140,11 @@ df_loglogistic = data.frame(t,ft,Ft,St,ht)
 # Density
 ggplot(data=df_loglogistic,aes(x=t,y=ft))+
   geom_line(col='cyan4')+
-  labs(x=expression(t),y=expression(f(t)))+
+  labs(x=expression(t),y=expression(f(t)),linetype=NULL,colour=NULL)+
+  geom_vline(aes(xintercept = median_logLogistic,linetype = "Median",colour = "Median"))+
+  geom_vline(aes(xintercept = mean_logLogistic,linetype = "Mean",colour = "Mean"))+
+  scale_colour_manual(values = c("Median" = "black","Mean" = "darkred"))+
+  scale_linetype_manual(values = c("Median" = "dashed","Mean" = "longdash"))+
   coord_cartesian(x=c(0,2.5))
 
 # Distribution
@@ -146,9 +159,13 @@ ggplot(data=df_loglogistic,aes(x=t,y=St))+
   labs(x=expression(t),y=expression(S(t)))+
   coord_cartesian(x=c(0,2.5))
 
-# Hazard
+# Hazard with the maximum value attained
+max_hazard = ((kappa-1)/exp(theta))^(1/kappa)
 ggplot(data=df_loglogistic,aes(x=t,y=ht))+
   geom_line(col='darkgreen')+
-  labs(x=expression(t),y=expression(h(t)))
-
+  labs(x=expression(t),y=expression(h(t)))+
+  geom_vline(aes(xintercept = max_hazard,
+                 linetype = "Maximum hazard")) +
+  scale_linetype_manual(values = c("Maximum hazard" = "dashed")) +
+  labs(linetype = NULL)
 ##################################################################
