@@ -78,11 +78,8 @@ lambda_L;lambda_U
 t = seq(0.001,max(lung$time),by=1)
 ft_exp = lambda_emv*exp(-lambda_emv*t)
 density_exp = data.frame(t,ft_exp)
-
-ggplot(data=lung,aes(x=time,y=after_stat(density)))+
-  geom_histogram(fill='lightblue3',col='black',
-                 breaks=hist(lung$time,plot=F)$breaks)+
-  geom_line(data=density_exp,aes(x=t,y=ft_exp))+  
+ggplot(data=density_exp,aes(x=t,y=ft_exp))+
+  geom_line()+  
   labs(x='Survival time',y='')
 
 # Risk function and CI at 95%
@@ -92,13 +89,12 @@ ggplot(data=risk_exp,aes(x=t,y=ht_exp))+
   geom_line()+
   geom_line(aes(x=t,y=lambda_L),col='navyblue')+
   geom_line(aes(x=t,y=lambda_U),col='navyblue')+
-  labs(x=expression(t),y=expression(h(t)))+
-  coord_cartesian(y=c(.0019,.0028))
+  labs(x=expression(t),y=expression(h(t)))
 
-# Survival function and CI at 95%
+# Survival function with with log(-log()) transformation CI
 St_exp = exp(-lambda_emv*t)
-St_exp_L = St_exp*exp(-t*se_lambda*qnorm(1-alpha/2))
-St_exp_U = St_exp*exp(t*se_lambda*qnorm(1-alpha/2))
+St_exp_L = St_exp^(exp(+qnorm(1-alpha/2)/sqrt(num_death)))
+St_exp_U = St_exp^(exp(-qnorm(1-alpha/2)/sqrt(num_death)))
 surv_exp = data.frame(t,St_exp)
 
 ggplot(data=surv_exp,aes(x=t,y=St_exp))+
@@ -114,7 +110,6 @@ ggplot(data=surv_exp,aes(x=t,y=St_exp))+
 p = seq(.01,.99,by=.01)
 tp = log(1/(1-p))/lambda_emv
 se_tp = tp/sqrt(num_death)
-
 tp_L = tp*exp(-qnorm(.975)/sqrt(num_death))
 tp_U = tp*exp(qnorm(.975)/sqrt(num_death))
 
@@ -172,10 +167,8 @@ gamma_L;gamma_U
 # Density 
 ft_wb = lambda*gamma*(t^(gamma-1))*exp(-lambda*(t^gamma))
 density_wb = data.frame(t,ft_wb)
-ggplot(data=lung,aes(x=time,y=after_stat(density)))+
-  geom_histogram(fill='lightblue3',col='black',
-                 breaks=hist(lung$time,plot=F)$breaks)+
-  geom_line(data=density_wb,aes(x=t,y=ft_wb))+  
+ggplot(data=density_wb,aes(x=t,y=ft_wb))+
+  geom_line()+  
   labs(x='Days',y='')
 
 # Risk function and CI at 95%
